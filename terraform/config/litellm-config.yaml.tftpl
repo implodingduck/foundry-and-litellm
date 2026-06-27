@@ -1,0 +1,22 @@
+# LiteLLM proxy configuration.
+# Rendered by Terraform and mounted into the container as a secret volume.
+#
+# Inbound auth (clients -> LiteLLM): master_key, injected via os.environ.
+# Backend auth (LiteLLM -> Foundry model): Entra ID via the container app's
+# user-assigned managed identity. enable_azure_ad_token_refresh makes LiteLLM
+# use ManagedIdentityCredential (AZURE_CLIENT_ID) instead of an API key.
+model_list:
+  - model_name: ${model_name}
+    litellm_params:
+      model: azure/${deployment_name}
+      api_base: os.environ/AZURE_API_BASE
+      api_version: os.environ/AZURE_API_VERSION
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+litellm_settings:
+  drop_params: true
+  telemetry: false
+  json_logs: true
+  enable_azure_ad_token_refresh: true
