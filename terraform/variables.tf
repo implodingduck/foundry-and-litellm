@@ -51,6 +51,6 @@ variable "connection_name" {
 
 variable "litellm_log_level" {
   type        = string
-  description = "LiteLLM log verbosity (LITELLM_LOG). Use DEBUG to log full request/response payloads, INFO for less noise."
-  default     = "DEBUG"
+  description = "LiteLLM log verbosity (LITELLM_LOG). WARNING emits just the request/response payloads (via the custom logger) plus genuine warnings/errors; set DEBUG for full framework tracing."
+  default     = "WARNING"
 }

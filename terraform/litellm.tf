@@ -57,7 +57,13 @@ resource "azurerm_container_app" "litellm" {
     value = templatefile("${path.module}/config/litellm-config.yaml.tftpl", {
       model_name      = var.backend_model_name
       deployment_name = azurerm_cognitive_deployment.model.name
+      base_model      = var.backend_model_name
     })
+  }
+
+  secret {
+    name  = "litellm-callback"
+    value = file("${path.module}/config/litellm_request_logger.py")
   }
 
   template {
@@ -74,7 +80,14 @@ resource "azurerm_container_app" "litellm" {
       cpu    = 1.0
       memory = "2Gi"
 
-      args = ["--config", "/etc/litellm/litellm-config", "--port", "4000"]
+      # The secret volume at /etc/litellm is read-only and its filenames can't
+      # contain dots, but LiteLLM resolves callback modules relative to the
+      # config file and needs a real "<module>.py". So stage both files into a
+      # writable dir with proper names, then start the proxy from there.
+      command = ["/bin/sh", "-c"]
+      args = [
+        "mkdir -p /tmp/litellm && cp /etc/litellm/litellm-config /tmp/litellm/config.yaml && cp /etc/litellm/litellm-callback /tmp/litellm/litellm_request_logger.py && exec litellm --config /tmp/litellm/config.yaml --port 4000"
+      ]
 
       volume_mounts {
         name = "config"
@@ -91,7 +104,9 @@ resource "azurerm_container_app" "litellm" {
         value = var.azure_openai_api_version
       }
 
-      # Log level for the proxy. DEBUG logs each request/response.
+      # Log level for the proxy. WARNING + the custom request/response logger
+      # surfaces just the request and response payloads (the logger forces its
+      # own entries through); set DEBUG for full framework tracing.
       env {
         name  = "LITELLM_LOG"
         value = var.litellm_log_level

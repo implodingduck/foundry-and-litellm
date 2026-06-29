@@ -11,6 +11,11 @@ model_list:
       model: azure/${deployment_name}
       api_base: os.environ/AZURE_API_BASE
       api_version: os.environ/AZURE_API_VERSION
+    model_info:
+      # Maps the Azure deployment to a known base model so LiteLLM can
+      # calculate max tokens and cost. Without this it logs:
+      # "Could not identify azure model '<deployment>'".
+      base_model: azure/${base_model}
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
@@ -20,3 +25,6 @@ litellm_settings:
   telemetry: false
   json_logs: true
   enable_azure_ad_token_refresh: true
+  # Logs only the request + response payload for each call (see
+  # litellm_request_logger.py). Module is resolved relative to the config file.
+  callbacks: ["litellm_request_logger.proxy_handler_instance"]

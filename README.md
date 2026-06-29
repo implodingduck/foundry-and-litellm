@@ -88,6 +88,11 @@ cd samples
 Pass a different path as the first argument, or set `LITELLM_ENDPOINT` /
 `LITELLM_MASTER_KEY` in the environment to skip the file.
 
+> **Note:** This deployment runs LiteLLM standalone (no database), so the admin
+> **UI is not available** — logging in returns `Not connected to DB!`. Use the
+> proxy API with the master key as shown above. Enabling the UI requires
+> attaching a Postgres database and setting `DATABASE_URL`.
+
 ## Run a Foundry agent through the gateway
 
 The only thing that makes the agent "BYOM" is the model name: `<connection-name>/<model-name>`.
@@ -108,6 +113,31 @@ python run_agent.py
 3. `terraform apply`.
 
 The connection uses a **static model list** with `deploymentInPath = "false"`, so Foundry calls `{endpoint}/chat/completions` and selects the model via the request body — exactly LiteLLM's contract. To use dynamic discovery instead (LiteLLM exposes `GET /v1/models`), replace `models` in the connection metadata with a `modelDiscovery` block. See the [ModelGateway connection reference](https://github.com/microsoft-foundry/foundry-samples/blob/main/infrastructure/infrastructure-setup-bicep/01-connections/model-gateway/ModelGateway-Connection-Objects.md).
+
+## Logging
+
+By default the proxy logs **only the request and response payload** for each
+call, as a single structured JSON line. This is driven by a small custom
+callback (`terraform/config/litellm_request_logger.py`) wired in via
+`litellm_settings.callbacks`, which keeps the noisy framework loggers quiet.
+
+```bash
+# Tail just the request/response entries from the running container app
+az containerapp logs show -g <rg> -n aca-litellm-<suffix> --follow \
+  | grep request_response
+```
+
+In Log Analytics:
+
+```kusto
+ContainerAppConsoleLogs_CL
+| where Log_s has "litellm.request_response"
+| extend p = parse_json(tostring(parse_json(Log_s).message))
+| project TimeGenerated, model=p.request.model, messages=p.request.messages, response=p.response
+```
+
+Set `TF_VAR_litellm_log_level=DEBUG` (variable `litellm_log_level`) and re-apply
+for full framework tracing when you need to debug the proxy itself.
 
 ## Clean up
 
